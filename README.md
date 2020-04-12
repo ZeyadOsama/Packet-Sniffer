@@ -8,6 +8,9 @@ A simple packet sniffer in Python can be created with the help socket module. We
 
 <img src="assets/packet_sniffer.png"/>
 
+## Synopsis
+This is a python implementation of sniffing packets using sockets.
+
 ## Getting Ready
 As some behaviors of the socket module depend on the operating system socket API and there is no uniform API for using a raw socket under a different operating system, we need to use a <b>Linux OS</b> to run this script. So, if you are using Windows or macOS, please make sure to run this script inside a virtual Linux environment. Also, most operating systems <b>require root access</b> to use raw socket APIs.
 
@@ -94,3 +97,17 @@ A TCP header typically looks like the following:
 <b>N.B.</b> Please refer to the <a href="https://tools.ietf.org/html/rfc793">TCP RFC</a> for detailed information.
 
 
+## API Reference
+* All about Python ```sockets``` [here](https://docs.python.org/2/library/socket.html)
+* All about Python ```structs``` [here](https://docs.python.org/2/library/struct.html)
+* All about Python ```sys``` [here](https://docs.python.org/2/library/sys.html)
+
+## Tests
+You can find test cases to check the correctness of parsing [here](https://github.com/ZeyadOsama/http-packet-stealer/blob/master/test_cases.py)
+
+## Usage
+```
+git clone <repo-url>
+sudo python3 <path>\main.py
+```
+<b>N.B.</b> Doing `sudo` is important as you should have `root` priviledges.
