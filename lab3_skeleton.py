@@ -2,20 +2,19 @@ import socket
 import struct
 
 
-class Constants:
+class Limits(int):
     MAX_RECEIVE = 65536
     MIN_IHL = 5
-    UDP = 0x0011
 
 
 class Formats(str):
     VER_IHL_FMT = '!B'
     NL_FMT = '!BHHHBBH4s4s'
     AL_FMT = '!HHLLB'
-    AL_DATA_FMT = '!{}s'
+    PYLD_FMT = '!{}s'
 
 
-class Index:
+class Index(int):
     IHL = 1
 
 
@@ -55,9 +54,23 @@ class TcpPacket(object):
         self.payload = payload
 
 
+def get_header_len(offset: int) -> int:
+    return offset * 4
+
+
+def parse_payload(packet: bytes, offset: int) -> bytes:
+    """
+    Extracts payload from a given packet starting from a given offset.
+    """
+    index = get_header_len(offset)
+    payload = packet[index:]
+    return struct.unpack(Formats.PYLD_FMT.format(len(payload)), payload)[0]
+
+
 def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
-    # Converts a byte-array IP address to a string
-    # the input is on the form b'\xaa\xab'... a byte array
+    """
+    Converts a byte-array IP address to a string.
+    """
     return '.'.join(map(str, raw_ip_addr))
 
 
@@ -70,9 +83,7 @@ def parse_application_layer_packet(ip_packet_payload: bytes) -> TcpPacket:
     src_port = tcp_header[0]
     dst_port = tcp_header[1]
     data_offset = tcp_header[4] >> 4
-
-    index = get_header_len(data_offset)
-    payload = struct.unpack(Formats.AL_DATA_FMT.format(len(ip_packet_payload[index:])), ip_packet_payload[index:])[0]
+    payload = parse_payload(packet=ip_packet_payload, offset=data_offset)
 
     return TcpPacket(src_port, dst_port, data_offset, payload)
 
@@ -89,12 +100,12 @@ def parse_network_layer_packet(ip_packet: bytes) -> IpPacket:
     if ihl == -1:
         return get_def_ip_packet()
 
-    packet = struct.unpack(Formats.NL_FMT, ip_packet[Index.IHL:get_header_len(ihl)])
+    ip_portion = struct.unpack(Formats.NL_FMT, ip_packet[Index.IHL:get_header_len(ihl)])
 
-    protocol = nl_parse_protocol(packet)
-    ip_src = nl_parse_ip_src(packet)
-    ip_dst = nl_parse_ip_dst(packet)
-    payload = nl_parse_payload(ip_packet, start=get_header_len(ihl), end=nl_parse_total_len(packet))
+    protocol = nl_parse_protocol(ip_portion)
+    ip_src = nl_parse_ip_src(ip_portion)
+    ip_dst = nl_parse_ip_dst(ip_portion)
+    payload = parse_payload(packet=ip_packet, offset=ihl)
 
     return IpPacket(protocol, ihl, ip_src, ip_dst, payload)
 
@@ -109,9 +120,8 @@ def nl_parse_total_len(packet: tuple) -> int:
 
 def nl_parse_ihl(packet: tuple) -> int:
     ihl = packet[0] & 0x0F
-    if ihl < Constants.MIN_IHL:
-        print(f'{Terminal.ANSI_RED}[ERROR] Expected IHL value greater than 4 '
-              f'but got {ihl} instead.{Terminal.ANSI_RESET}')
+    if ihl < Limits.MIN_IHL:
+        print_error(f'Expected IHL value greater than 4 but got {ihl} instead.')
         return -1
     return ihl
 
@@ -128,17 +138,12 @@ def nl_parse_ip_dst(packet: tuple):
     return parse_raw_ip_addr(packet[8])
 
 
-def nl_parse_payload(packet: bytes, start: int, end: int) -> bytes:
-    payload = packet[start:end]
-    return struct.unpack('!{}s'.format(len(payload)), payload)[0]
-
-
-def get_header_len(offset: int) -> int:
-    return offset * 4
-
-
 def setup_sockets() -> socket:
-    return socket.socket(socket.AF_INET, socket.SOCK_RAW, Constants.UDP)
+    return socket.socket(socket.AF_INET, socket.SOCK_RAW, Protocols.TCP)
+
+
+def print_error(msg: str):
+    print(f'{Terminal.ANSI_RED}[ERROR] {msg}{Terminal.ANSI_RESET}')
 
 
 def main():
@@ -151,14 +156,17 @@ def main():
     stealer_socket = setup_sockets()
     try:
         while True:
-            packet, addr = stealer_socket.recvfrom(Constants.MAX_RECEIVE)
+            packet, addr = stealer_socket.recvfrom(Limits.MAX_RECEIVE)
             ip_packet: IpPacket = parse_network_layer_packet(packet)
             if ip_packet.protocol == Protocols.TCP:
                 tcp_packet: TcpPacket = parse_application_layer_packet(ip_packet.payload)
                 payload: bytes = tcp_packet.payload
-                print(payload.decode('utf-8'))
+                try:
+                    print(payload.decode('utf-8'))
+                except UnicodeError:
+                    print_error('Program terminated due to payload decoding error.')
     except KeyboardInterrupt:
-        print(f'{Terminal.ANSI_RED}Program closed due to KeyboardInterrupt.{Terminal.ANSI_RESET}')
+        print_error('Program terminated due to KeyboardInterrupt.')
         exit(-1)
 
 
