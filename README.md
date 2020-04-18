@@ -6,7 +6,7 @@
 A simple packet sniffer in Python can be created with the help socket module. We can use the raw socket type to get the packets. A raw socket provides access to the underlying protocols, which support socket abstractions. Since raw sockets are part of the internet socket API, they can only be used to generate and receive IP packets.
 </p>
 
-<img src="assets/packet_sniffer.png"/>
+<img alt="packet_sniffer" src="https://user-images.githubusercontent.com/30150819/79671094-f8bf8f00-81c7-11ea-94a6-71a7a4eeef19.png"/>
 
 ## Synopsis
 This is a python implementation of sniffing packets using sockets.
